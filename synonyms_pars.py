@@ -65,5 +65,3 @@ def get_synonyms(word):
         }
 
     return result
-
-print(get_synonyms('слово'))
