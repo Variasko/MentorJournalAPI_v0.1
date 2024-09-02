@@ -87,13 +87,55 @@ async def get_student_by_group(group: str):
             })
         return {'students':result}
 
+@app.get('/get_persons')
+async def get_persons():
+    with Session(autoflush=False, bind=engine) as db:
+        persons = db.query(Person).all()
+        return {"persons": persons}
+
 @app.post("/add_admin/{id}/{login}/{password}")
 async def add_admin(id: int, login: str, password: str):
     with Session(autoflush=False, bind=engine) as db:
-        new_admin = Admin(id=id, login=login, password=password)
+        new_admin = Admin(personId=id, login=login, password=password)
         db.add(new_admin)
         db.commit()
-        return new_admin
+        return {
+            'status': 'success'
+        }
+
+@app.post('/add_mentor/{id}/{category}/{login}/{password}')
+async def add_mentor(id: int, category: str, login: str, password: str):
+    with Session(autoflush=False, bind=engine) as db:
+        new_mentor = Mentor(personId=id, category=category, login=login, password=password)
+        db.add(new_mentor)
+        db.commit()
+        return {
+            'status': 'success'
+        }
+
+@app.post('/add_student/{id}/{isRemoved}/{dateRemoved}')
+async def add_student(id: int, isRemoved: bool, dateRemoved: str = None):
+    with Session(autoflush=False, bind=engine) as db:
+        new_student = Student(personId=id, isRemoved=isRemoved, dateRemoved=dateRemoved)
+        db.add(new_student)
+        db.commit()
+        return {
+            'status': 'success'
+        }
+
+@app.post('/add_person/{surname}/{name}/{patronymic}/{passportSerial}/{passportNumber}/{SNILS}/{INN}/{gender}/{phone}/{registrationAddress}/{livingAddress}')
+async def add_person(surname: str, name: str, patronymic: str, passportSerial: str, passportNumber: str, SNILS: str,
+                      INN: str, gender: bool, phone: str, registrationAddress: str, livingAddress: str):
+    with Session(autoflush=False, bind=engine) as db:
+        new_person = Person(surname=surname, name=name, patronymic=patronymic, passportSerial=passportSerial,
+                            passportNumber=passportNumber, SNILS=SNILS, INN=INN, gender=gender, phone=phone,
+                            registrationAddress=registrationAddress, livingAddress=livingAddress)
+        db.add(new_person)
+        db.commit()
+        return {
+            'status': 'success'
+        }
+
 
 if __name__ == '__main__':
     import uvicorn
