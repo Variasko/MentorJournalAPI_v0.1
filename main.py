@@ -1,7 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from sqlalchemy.orm import Session
 from synonyms_pars import *
 from database import *
+from typing import Dict
+import datetime as dt
 
 app = FastAPI()
 
@@ -52,6 +54,8 @@ async def get_all_social_status():
     with Session(autoflush=False, bind=engine) as db:
         social_status = db.query(SocialStatus).all()
         return {"social_status": social_status}
+
+
 @app.get('/get_student_by_group/{group}')
 async def get_student_by_group(group: str):
     with Session(autoflush=False, bind=engine) as db:
@@ -81,17 +85,24 @@ async def get_student_by_group(group: str):
 
         for i in students:
             result.append({
-                'id':i.personId,
-                'isRemoved':i.isRemoved,
-                'dateRemoved':i.dateRemoved
+                'id': i.personId,
+                'isRemoved': i.isRemoved,
+                'dateRemoved': i.dateRemoved
             })
-        return {'students':result}
+        return {'students': result}
+
 
 @app.get('/get_persons')
 async def get_persons():
     with Session(autoflush=False, bind=engine) as db:
         persons = db.query(Person).all()
         return {"persons": persons}
+
+@app.get('/get_all_socialStatusesItems')
+async def get_all_socialStatusesItems():
+    with Session(autoflush=False, bind=engine) as db:
+        socialStatusesItems = db.query(GroupSocialStatus).all()
+        return {"socialStatusesItems": socialStatusesItems}
 
 @app.post("/add_admin/{id}/{login}/{password}")
 async def add_admin(id: int, login: str, password: str):
@@ -103,6 +114,7 @@ async def add_admin(id: int, login: str, password: str):
             'status': 'success'
         }
 
+
 @app.post('/add_mentor/{id}/{category}/{login}/{password}')
 async def add_mentor(id: int, category: str, login: str, password: str):
     with Session(autoflush=False, bind=engine) as db:
@@ -112,6 +124,7 @@ async def add_mentor(id: int, category: str, login: str, password: str):
         return {
             'status': 'success'
         }
+
 
 @app.post('/add_student/{id}/{isRemoved}/{dateRemoved}')
 async def add_student(id: int, isRemoved: bool, dateRemoved: str = None):
@@ -123,9 +136,11 @@ async def add_student(id: int, isRemoved: bool, dateRemoved: str = None):
             'status': 'success'
         }
 
-@app.post('/add_person/{surname}/{name}/{patronymic}/{passportSerial}/{passportNumber}/{SNILS}/{INN}/{gender}/{phone}/{registrationAddress}/{livingAddress}')
+
+@app.post(
+    '/add_person/{surname}/{name}/{patronymic}/{passportSerial}/{passportNumber}/{SNILS}/{INN}/{gender}/{phone}/{registrationAddress}/{livingAddress}')
 async def add_person(surname: str, name: str, patronymic: str, passportSerial: str, passportNumber: str, SNILS: str,
-                      INN: str, gender: bool, phone: str, registrationAddress: str, livingAddress: str):
+                     INN: str, gender: bool, phone: str, registrationAddress: str, livingAddress: str):
     with Session(autoflush=False, bind=engine) as db:
         new_person = Person(surname=surname, name=name, patronymic=patronymic, passportSerial=passportSerial,
                             passportNumber=passportNumber, SNILS=SNILS, INN=INN, gender=gender, phone=phone,
@@ -136,8 +151,30 @@ async def add_person(surname: str, name: str, patronymic: str, passportSerial: s
             'status': 'success'
         }
 
+@app.post('/add_social_status/{status}')
+async def add_social_status(status: str):
+    with Session(autoflush=False, bind=engine) as db:
+        try:
+            new_social_status = SocialStatus(name=status)
+            db.add(new_social_status)
+            db.commit()
+            return {
+                'status': 'success',
+                'new_status': new_social_status.id
+            }
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
-if __name__ == '__main__':
-    import uvicorn
-
-    uvicorn.run(app, host="192.168.0.102", port=8020)
+@app.post('/add_social_passport_item/{studId}/{socStatusId}')
+async def add_social_passport_item(studId: int, socStatusId: int):
+    with Session(autoflush=False, bind=engine) as db:
+        new_social_passport_item = GroupSocialStatus(
+            studentId=studId,
+            socialStatusId=socStatusId,
+            editDate=dt.date.today()
+        )
+        db.add(new_social_passport_item)
+        db.commit()
+        return {
+            'status': 'success'
+        }

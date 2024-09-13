@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Boolean, Date, ForeignKey, create_engine
+from sqlalchemy import Column, Integer, String, Boolean, Date, ForeignKey, create_engine, inspect, text
+import psycopg2
 from sqlalchemy.orm import relationship, sessionmaker, DeclarativeBase
 
 class Base(DeclarativeBase): pass
@@ -241,6 +242,15 @@ class StudentInGroup(Base):
     student = relationship("Student", back_populates="studentInGroups")
     group = relationship("Group", back_populates="studentInGroups")
 
+class TableEditedHistory(Base):
+    __tablename__ = 'TableEditedHistory'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tableName = Column(String(50), nullable=False)
+    attributeEdited = Column(String(50), nullable=False)
+    date = Column(Date, nullable=False)
+    attributeBefore = Column(String(1000), nullable=False)
+    attributeAfter = Column(String(1000), nullable=False)
+
 class WorkPlanReport(Base):
     __tablename__ = 'WorkPlanReport'
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -252,7 +262,69 @@ class WorkPlanReport(Base):
     events = relationship("Event", back_populates="workPlanReport")
 
 # Создание движка
-engine = create_engine('postgresql://postgres:1@localhost:5434/MentorJournal', echo=True)
+engine = create_engine('postgresql+psycopg2://postgres:1@localhost:5434/MentorJournal', echo=True)
 
 # Создание таблиц
 Base.metadata.create_all(engine)
+
+inspector = inspect(engine)
+
+# Функция для генерации и выполнения SQL-команд
+def generate_and_execute_sql():
+    # Создание функции триггера
+    trigger_function_sql = """
+CREATE OR REPLACE FUNCTION log_table_changes()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (TG_OP = 'UPDATE') THEN
+        INSERT INTO public."TableEditedHistory" ("tableName", "attributeEdited", date, "attributeBefore", "attributeAfter")
+        VALUES (TG_TABLE_NAME, TG_ARGV[0], CURRENT_DATE, OLD, NEW);
+    ELSIF (TG_OP = 'DELETE') THEN
+        INSERT INTO public."TableEditedHistory" ("tableName", "attributeEdited", date, "attributeBefore", "attributeAfter")
+        VALUES (TG_TABLE_NAME, TG_ARGV[0], CURRENT_DATE, OLD, NULL);
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+"""
+    try:
+        # Подключение к базе данных с помощью psycopg2
+        conn = psycopg2.connect(
+            dbname='MentorJournal',
+            user='postgres',
+            password='1',
+            host='localhost',
+            port='5434'
+        )
+        cursor = conn.cursor()
+
+        # Выполнение SQL-команды для создания функции триггера
+        cursor.execute(trigger_function_sql)
+        conn.commit()
+
+        # Генерация и выполнение триггеров для всех таблиц и их атрибутов
+        tables = inspector.get_table_names()
+        for table in tables:
+            columns = inspector.get_columns(table)
+            for column in columns:
+                column_name = column['name']
+                trigger_name = f"log_{table}_changes_{column_name}"
+                trigger_sql = f"""
+CREATE TRIGGER {trigger_name}
+AFTER UPDATE OR DELETE ON public."{table}"
+FOR EACH ROW EXECUTE FUNCTION log_table_changes('{column_name}');
+"""
+                cursor.execute(trigger_sql)
+                conn.commit()
+
+        # Закрытие соединения
+        cursor.close()
+        conn.close()
+
+    except psycopg2.OperationalError as e:
+        print(f"Ошибка подключения к базе данных: {e}")
+    except Exception as e:
+        print(f"Ошибка выполнения SQL-команд: {e}")
+
+# Генерация и выполнение SQL-команд
+generate_and_execute_sql()

@@ -1,7 +1,13 @@
-from fastapi import FastAPI
+import datetime as dt
+
+from sqlalchemy.orm import Session
+
+from database import engine, WorkPlanReport
+
+"""from fastapi import FastAPI
 from sqlalchemy.orm import Session
 from synonyms_pars import *
-from database import *
+from database import *"""
 
 """def get_student_by_group(group: str):
     with Session(autoflush=False, bind=engine) as db:
@@ -24,7 +30,7 @@ from database import *
 
 print(get_student_by_group("ИСП-421п"))"""
 
-from sqlalchemy.orm import Session
+"""from sqlalchemy.orm import Session
 
 def get_student_by_group(group: str):
     with Session(autoflush=False, bind=engine) as db:
@@ -58,7 +64,4 @@ def get_student_by_group(group: str):
                 'isRemoved':i.isRemoved,
                 'dateRemoved':i.dateRemoved
             })
-        return {'students':result}
-
-# Пример использования
-print(get_student_by_group("ИСП-421п"))
+        return {'students':result}"""
